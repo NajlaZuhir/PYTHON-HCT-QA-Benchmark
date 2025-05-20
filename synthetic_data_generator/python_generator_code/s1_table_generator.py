@@ -50,6 +50,8 @@ class TableGenerator:
         """
         return os.path.join(self.input_folder, filename)
 
+    # 1. Reading JSON Files
+    
     def load_data(self):
         """
         Loads semantic attributes and table template data from JSON files.
@@ -63,6 +65,8 @@ class TableGenerator:
         # Retrieve the 'replica' attribute if it is specified.
         self.replica = self.tablePatterns.get("replica")
 
+    # 2. Generating Parameter Combinations
+    
     def generate_param_combinations(self):
         """
         Build all parameter combinations using itertools.product.
@@ -85,6 +89,8 @@ class TableGenerator:
         ))
         return param_combinations
 
+    # 3. Creating Table Instances
+    
     def generate_tables(self):
         """
         Iterates over each table template and each parameter combination and 
@@ -211,6 +217,8 @@ class TableGenerator:
         print("NUMBER OF TABLES:")
         print(table_count)
 
+    # 4. Writing Output
+    
     def write_output(self):
         """
         Writes the generated table data to the output JSON file.
@@ -229,6 +237,7 @@ class TableGenerator:
         self.write_output()
 
 
+# Test Execution Flow
 if __name__ == "__main__":
     generator = TableGenerator()
     generator.run()
