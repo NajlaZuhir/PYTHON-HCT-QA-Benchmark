@@ -69,25 +69,39 @@ class TableGenerator:
     
     def generate_param_combinations(self):
         """
-        Build all parameter combinations using itertools.product.
-        Returns a list of tuples where each tuple represents a combination.
+        Build all parameter combinations in R’s order (first list fastest).
+        Returns a list of tuples in the form
+          (shuffle, col_row_name_pos, col_row_agg_pos, col_row_levels, row_format)
         """
-        allTableCombinations = {
-            "shuffle": self.tablePatterns.get("shuffle", []),
-            "col_row_name_pos": self.tablePatterns.get("col_row_name_pos", []),
-            "col_row_agg_pos": self.tablePatterns.get("col_row_agg_pos", []),
-            "col_row_levels": self.tablePatterns.get("col_row_levels", []),
-            "row_format": self.tablePatterns.get("row_format", [])
+        combos = {
+            "shuffle":                self.tablePatterns.get("shuffle", []),
+            "col_row_name_pos":       self.tablePatterns.get("col_row_name_pos", []),
+            "col_row_agg_pos":        self.tablePatterns.get("col_row_agg_pos", []),
+            "col_row_levels":         self.tablePatterns.get("col_row_levels", []),
+            "row_format":             self.tablePatterns.get("row_format", [])
         }
-        
-        param_combinations = list(itertools.product(
-            allTableCombinations["shuffle"],
-            allTableCombinations["col_row_name_pos"],
-            allTableCombinations["col_row_agg_pos"],
-            allTableCombinations["col_row_levels"],
-            allTableCombinations["row_format"]
-        ))
+
+        # Reverse the order so that `shuffle` is the *first* argument to cycle fastest
+        rev_lists = [
+            combos["row_format"],
+            combos["col_row_levels"],
+            combos["col_row_agg_pos"],
+            combos["col_row_name_pos"],
+            combos["shuffle"],
+        ]
+
+        # itertools.product iterates the *last* list fastest, so reversed → R’s behavior
+        raw = itertools.product(*rev_lists)
+
+        # Un-reverse each tuple so it becomes (shuffle, col_row_name_pos, ...)
+        param_combinations = [
+            (shuffle, col_row_name_pos, col_row_agg_pos, col_row_levels, row_format)
+            for row_format, col_row_levels, col_row_agg_pos, col_row_name_pos, shuffle
+            in raw
+        ]
+
         return param_combinations
+
 
     # 3. Creating Table Instances
     
@@ -220,13 +234,17 @@ class TableGenerator:
     # 4. Writing Output
     
     def write_output(self):
-        """
-        Writes the generated table data to the output JSON file.
-        """
         output_path = self.get_filepath(self.output_file)
-        with open(output_path, 'w') as f:
-            json.dump(self.generated_tables, f, indent=2)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(
+                self.generated_tables,
+                f,
+                indent=4,         # <-- 4 spaces per level
+                separators=(', ', ': '),  # <-- default spacing
+                ensure_ascii=False
+            )
         print(f"Output written to {output_path}")
+
 
     def run(self):
         """
