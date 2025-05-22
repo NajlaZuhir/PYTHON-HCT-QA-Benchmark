@@ -1,6 +1,9 @@
 
 ### toolbox for TABLE GENERATION
 
+# --------------------------------------------------------------------------------------------------
+# STEP 1: Get Names and Values
+# Description: Retrieves the 'names' and 'values' for a given attribute code from semantic data.
 # get the names and values of attribute code from semantic data
 getNamesValues <- function(semanticData,code){
   for (i in 1: length(semanticData)){
@@ -14,12 +17,47 @@ getNamesValues <- function(semanticData,code){
   return(NULL)
 }
 
+#--Test Data------------------------------------------------------------------------------------------
+# semanticData <- list(
+#   list(code = "x1", names = c("country"), values = c("USA", "UK")),
+#   list(code = "x2", names = c("year"), values = c(2020, 2021))
+# )
+# getNamesValues(semanticData, "x1")
+
 
 # generate samples for the value column
 # ensure integer values are distinct
 # valueCode can be a code for values as in semantics or directly an interval of values
 # use dot like in 2.3 and 24.0 to identify a real number and no dot like 24 to identify integers
 # any interval containing at least a real as min or max will generate real numbers uniformly sampled in that interval
+
+# --------------------------------------------------------------------------------------------------
+# STEP 2: Make Distinct
+# Description: Ensures uniqueness by adding a small offset to duplicate values.
+
+# generate distinct values from a list of values by adding epsilon offsetwith numDigits decimal values
+# to each duplicate, then randomize their order
+makeDistinct <- function(vals,numDigits){
+  #print("makeDistinct")
+  #print(vals)
+  while (length(unique(vals))!=length(vals)){
+    # there are still duplicates
+    svals = sort(vals) 
+    for (i in which(diff(svals)==0)){
+      # add the smallest possible value to each duplicate
+      svals[i+1] = svals[i+1]+10^(-numDigits)
+    }
+    vals = svals
+  }
+  
+  # return randomize order
+  return(sample(vals)) 
+}
+
+
+# --------------------------------------------------------------------------------------------------
+# STEP 3: Get Sample Values (Numeric)
+# Description: Generates samples from semantic ranges (integer or real values).
 getSampleValues <- function(semanticValues,valueCode,numSample,numDigits=2){
   
   if (length(valueCode) == 1){ # valueCode is a name of a code like "int100" in semanticValues to generate values 
@@ -57,25 +95,16 @@ getSampleValues <- function(semanticValues,valueCode,numSample,numDigits=2){
   return(vals)
 }
 
-# generate distinct values from a list of values by adding epsilon offsetwith numDigits decimal values
-# to each duplicate, then randomize their order
-makeDistinct <- function(vals,numDigits){
-  #print("makeDistinct")
-  #print(vals)
-  while (length(unique(vals))!=length(vals)){
-    # there are still duplicates
-    svals = sort(vals) 
-    for (i in which(diff(svals)==0)){
-      # add the smallest possible value to each duplicate
-      svals[i+1] = svals[i+1]+10^(-numDigits)
-    }
-    vals = svals
-  }
-  
-  # return randomize order
-  return(sample(vals)) 
-}
 
+#--Test Data------------------------------------------------------------------------------------------
+# semanticValues <- list(int5 = c(1L, 5L))
+# set.seed(123)
+# getSampleValues(semanticValues, "int5", numSample = 3, numDigits = 0)
+
+
+# --------------------------------------------------------------------------------------------------
+# STEP 4: Get Values From Names
+# Description: Extracts attribute values based on inclusion/exclusion filters.
 # get the values of attribute from their names and filters
 getValuesFromNames <- function(namesAndValues,valKeep,valRemove){
   speStr = "!@!" # special sep to distinguish numbers of the names and numbers added when unlisting
@@ -166,6 +195,24 @@ getValuesFromNames <- function(namesAndValues,valKeep,valRemove){
   return(Ltmp)
 }
 
+
+# -- Test Case --
+# namesAndValues <- list(
+#   names = c("country", "year"),
+#   values = list(
+#     country = c("USA", "UK"),
+#     year = c(2020, 2021)
+#   )
+# )
+# print(getValuesFromNames(namesAndValues, c(), c()))
+# print(getValuesFromNames(namesAndValues, c("UK"), c()))
+# print(getValuesFromNames(namesAndValues, c(), c("USA")))
+
+
+# --------------------------------------------------------------------------------------------------
+# STEP 5: Sample Values from List
+# Description: Randomly selects consecutive values from a list.
+
 # sample values from filtered list
 # use valSample = [0] to pick all existing values without sampling
 # pick between valSample[1] and valSample[2] consecutive values in valList list of values
@@ -195,6 +242,18 @@ sampleValues <- function(valList,valSample){
   
   return(res)
 }
+# -- Test the function --
+# set.seed(123)
+# valList <- c("A", "B", "C", "D", "E")
+# valSample <- c(2, 3)
+
+# print(sampleValues(valList, valSample))
+
+
+
+# --------------------------------------------------------------------------------------------------
+# STEP 6: Sample Values From Hierarchical Names
+# Description: Samples attribute names across multiple hierarchy levels.
 
 ## generate samples follwoing valSample (use sampleValues internally)
 ## with listCompositeAttrNames a list of attribute names made of nested levels separated by "."
@@ -304,11 +363,36 @@ sampleValuesFromHierarchy <- function(listCompositeAttrNames,valSample){
   }
 }
 
+# -- Test Case --
+# compositeAttrs <- c("Asia.India.Delhi", "Asia.India.Mumbai", "Europe.Germany.Berlin")
+# valSample <- c(1, 2)
+# set.seed(123)
+# print(sampleValuesFromHierarchy(compositeAttrs, valSample))
+
+
+# --------------------------------------------------------------------------------------------------
+# STEP 7: Get Attribute Index from Code
+# Description: Returns the index of the attribute code in the attribute list.
 
 # get index of col/row attribute having a certain code (return the first one if a list of codes is given) 
 getAttrFromCodes <- function(attrList,codes){ 
   for (i in 1:length(attrList)) if (is.element(attrList[[i]]$code,codes)) return(i)
 } 
+
+
+# -- Test Case --
+# attrList <- list(
+#   list(code = "x1", names = c("Country")),
+#   list(code = "x2", names = c("Year")),
+#   list(code = "x3", names = c("City"))
+# )
+# print(getAttrFromCodes(attrList, "x2"))   # Expected: 2
+# print(getAttrFromCodes(attrList, "x99"))  # Expected: NULL
+
+
+# --------------------------------------------------------------------------------------------------
+# STEP 8: Get Codes from Name
+# Description: Maps attribute names to their codes based on semantic metadata.
 
 getCodesFromName <- function(allSemanticAttributes,attrName){
   attrData <- allSemanticAttributes$data
@@ -316,3 +400,56 @@ getCodesFromName <- function(allSemanticAttributes,attrName){
   for (i in 1:length(attrData)) if (is.element(attrName,unlist(attrData[[i]]$names))) codes <- c(codes,attrData[[i]]$code)
   return(codes)
 }
+
+# -- Test Case --
+# semanticData <- list(
+#   data = list(
+#     list(code = "x1", names = c("Country")),
+#     list(code = "x2", names = c("Year")),
+#     list(code = "x3", names = c("City"))
+#   )
+# )
+# print(getCodesFromName(semanticData, "Year"))     # Expected: "x2"
+# print(getCodesFromName(semanticData, "Unknown"))  # Expected: NULL
+
+#  Final Test (R) — Full Flow ----------------------------------
+# Load your toolbox
+source("toolboxTablesgenerator.R")
+
+# Step 1: Mock semanticData
+semanticData <- list(
+  list(code = "x1", names = c("Country"), values = list(Country = c("USA", "UK", "Qatar"))),
+  list(code = "x2", names = c("Year"), values = list(Year = c(2020, 2021, 2022)))
+)
+
+# Step 1: Get names/values
+nv <- getNamesValues(semanticData, "x1")
+
+# Step 2 & 3: Filter values
+filtered_vals <- getValuesFromNames(nv, valKeep = c(), valRemove = c("UK"))
+
+# Step 4: Sample flat values
+sample_cfg <- c(1, 2)
+sampled <- sampleValues(filtered_vals, sample_cfg)
+
+# Step 5: Hierarchical test
+compositeAttrs <- c(
+  "Asia.Qatar.Doha", "Asia.Qatar.AlRayyan", "Asia.UAE.Dubai",
+  "Europe.UK.London", "Europe.UK.Manchester"
+)
+set.seed(123)
+hct_result <- sampleValuesFromHierarchy(compositeAttrs, sample_cfg)
+
+# Step 6: Get index of attribute
+attr_index <- getAttrFromCodes(semanticData, "x2")
+
+# Step 7: Get code from name
+semanticDataObj <- list(data = semanticData)
+code_result <- getCodesFromName(semanticDataObj, "Country")
+
+# Show results
+cat("🔹 Filtered:", filtered_vals, "\n")
+print(sampled)
+print(hct_result)
+cat("🔹 Attribute Index for 'x2':", attr_index, "\n")
+cat("🔹 Code for 'Country':", code_result, "\n")
